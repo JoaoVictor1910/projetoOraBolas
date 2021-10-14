@@ -4,6 +4,7 @@ import os, time, sys, random
 #Verificar comando do OS para limpar o terminal Repl.it = "clear" | Windows = "cls"
 clear = lambda: os.system('cls' if os.name == 'nt' else 'clear')
 
+#test
 
 #DataParser, Objetivo: ler dinamicamente o conteudo do arquivo e adicionar em uma tabela,
 #para ser usada
