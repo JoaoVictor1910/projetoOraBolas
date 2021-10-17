@@ -222,6 +222,7 @@ def animate(ix):
 anime = animation.FuncAnimation(fig, animate, interval=Outvar.frametime, frames=len(StructData[0]), blit=True, cache_frame_data=False) #blit=True 
 plt.show()
 
+
 """
 print("T----------------------------\n")
 print(StructData[0])
