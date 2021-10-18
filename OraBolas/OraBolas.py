@@ -5,7 +5,8 @@ sys.path.insert(0, str(path_root) + "\\Dependencias")
 #---------------------------------#
 
 #Importando dependecias
-import os, sys, random 
+import os, sys, random
+from math import *
 import time; import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
@@ -84,21 +85,28 @@ plt.grid(color=(0.1,0.1,0.1, 0.4), linestyle='dotted',  )
 geticon = plt.get_current_fig_manager()
 geticon.window.wm_iconbitmap("icone.ico")
 
-line, = plt.plot(StructData[1][0:StartAnimFrame], StructData[2][0:StartAnimFrame], lw=2)
+line, = plt.plot(StructData[1][0:StartAnimFrame], StructData[2][0:StartAnimFrame], lw=2, animated=True)
+
+interceptdist, = plt.plot([3, StructData[1][StartAnimFrame]], [3,StructData[2][StartAnimFrame]], lw=0.5, animated=True, color="red")
 
 ax.set_xlabel('Posição X/m')
 ax.set_ylabel('Posição Y/m')
 
 ax.set_ylim(bottom=0)
-ax.set_ylim(top=5.5)
+ax.set_ylim(top=6)
+
 ax.set_xlim(left=0)
-ax.set_xlim(right=10)  
+ax.set_xlim(right=9)  
 
 ax.set_facecolor((0.6, 0.6, 0.6))
 
 axslidercolor = (0.2, 0.2, 0.2)
 axbuttoncolor = "#4666dd"
 axhovercolor = "#e2a122"
+
+interdist_ctx = ax.annotate(str("  DI: N/A"), (3, 3.2), transform=fig.transFigure, animated=True, fontsize=5)
+
+aceleracao_ctx = ax.annotate(str("  D: N/A"), (3, 5.5), transform=fig.transFigure, animated=True, fontsize=7)
 
 bolinha = plt.Circle((StructData[1][StartAnimFrame], StructData[2][StartAnimFrame]), 0.05, fc=(1,1,1), edgecolor=(0.2, 0.2, 0.2))             #bolinha | d = 50mm -> r = d/2 -> 0.025r - coloquei 0.05 pq se n nem da pra ve kkkkkkk
 
@@ -162,10 +170,16 @@ StopAnimbutton.on_clicked(pauseanim)
 
 def Outvar():
   Outvar.t_end = time.time() + (StructData[0][-1] - StructData[0][StartAnimFrame]) # TempoAtual +  (TempoFinal - TempoInicial[em funçao do StartFrame] )
-  #print("TIME: I= {1} | F= {0}".format(StructData[0][-1], StructData[0][StartAnimFrame-1]))
+  Outvar.t_clockwise = time.time()
   Outvar.stoptimer = False
   Outvar.finishclock = 0 
   Outvar.frametime = 0
+  Outvar.old_frame = 0
+  Outvar.max_frames = len(StructData[0])
+
+  Outvar.aceleracao = 0
+  Outvar.Distancia = 0
+  Outvar.DistanciaTotal = 0
   Outvar.i = StartAnimFrame
 Outvar()
 
@@ -186,16 +200,17 @@ def animate(ix):
     Outvar.i += 1
 
   is_finished = ""
-  if Outvar.i == len(StructData[0]):
+  if Outvar.i == Outvar.max_frames:
     Outvar.stoptimer = True
     Outvar.finishclock = main_clock 
     anime.event_source.stop()
-    idealframe = (len(StructData[0]) * Outvar.frametime) * 0.001 if Outvar.frametime > 0 else 1^-8
+    #idealframe = (Outvar.max_frames * Outvar.frametime) * 0.001 if Outvar.frametime > 0 else 1^-8
     timeused = StructData[0][-1] - round(Outvar.finishclock, 2)
     is_finished = f"""
 ==============DEBUG==============
 - FINISHED AT {abs(round(Outvar.finishclock, 2))} 
 - TempoUsado: {round(timeused, 2)} de {StructData[0][-1]}
+- Distancia Max: {round(Outvar.DistanciaTotal, 2)}m/s²
 =================================
   """ if Outvar.stoptimer else ""
 
@@ -203,25 +218,60 @@ def animate(ix):
 #- TempoPorEficiencia: {round(timeused - idealframe, 2)}
 #- EficienciaEmPorcento: {int(100 - (((timeused - idealframe) / idealframe) * 100))}%
 
-    print("ELAPSED: {0} - {1:.2f} ON {3} {2}".format(Outvar.i, main_clock, is_finished, StructData[0][-Outvar.i]))
+    print("ELAPSED: {0} - {1:.2f} | D: {dist:.4f} - DT: {t_dist:.2f} {2}".format(
+      Outvar.i, 
+      time.time() - Outvar.t_clockwise, 
+      is_finished, 
+      #round(main_clock - StructData[0][-Outvar.i],2), 
+      dist=Outvar.Distancia,
+      t_dist=Outvar.DistanciaTotal
+      )
+    )
 
   #Desenhar tudo#
-  if Outvar.i < len(StructData[0]) -1:
+  if Outvar.i < Outvar.max_frames -1:
+    
     line.set_data(StructData[1][0:Outvar.i], StructData[2][0:Outvar.i])
+    interceptdist.set_data([3,StructData[1][Outvar.i]], [3, StructData[2][Outvar.i]])
+    
+    aceleracao_ctx.set_position([StructData[1][Outvar.i], StructData[2][Outvar.i]])
+    aceleracao_ctx.set_text(f"   A:{round(Outvar.aceleracao * 3.6, 2)}km/h")
 
+    #interdist_ctx.set_position([StructData[1][Outvar.i], StructData[2][Outvar.i]])
+    interdist_ctx.set_text(f"  DI: {round(sqrt(pow(StructData[1][Outvar.i+1] - 3 ,2) + pow(StructData[2][Outvar.i+1] - 3 ,2)), 2)}m")
+    
     if main_clock > 0:
       bolinha.center = ([StructData[1][Outvar.i], StructData[2][Outvar.i]])
-      raioIntercept.center = ([StructData[1][Outvar.i], StructData[2][Outvar.i]])    
-      print("ELAPSED: {0} - {1:.2f} ON {3}\t- DIF = {4} {2}".format(Outvar.i, main_clock, is_finished, StructData[0][-Outvar.i], round(main_clock - StructData[0][-Outvar.i],2)))
+      raioIntercept.center = ([StructData[1][Outvar.i], StructData[2][Outvar.i]]) 
+
+      if (Outvar.old_frame != Outvar.i):
+        Outvar.old_frame = Outvar.i      
+        
+        Outvar.Distancia = sqrt(pow(StructData[1][Outvar.i+1]-StructData[1][Outvar.i],2) + pow(StructData[2][Outvar.i+1]-StructData[2][Outvar.i],2)) #sqrt((Xb-Xa)^2 + (Yb-Ya)^2)
+        Outvar.DistanciaTotal += Outvar.Distancia      
+        
+        Outvar.aceleracao = Outvar.Distancia / 0.02 #(StructData[0][Outvar.i+1] - StructData[0][Outvar.i])
+
+        print("ELAPSED: {0} - {1:.2f} | D: {dist:.4f} - AC: {acc:.2f}m/s -> {kmacc:.2f}km/h - DT: {t_dist:.2f} {2}".format(
+          Outvar.i, 
+          time.time() - Outvar.t_clockwise, 
+          is_finished, 
+          #round(main_clock - StructData[0][-Outvar.i],2), 
+          dist=Outvar.Distancia,
+          t_dist=Outvar.DistanciaTotal,
+          acc= Outvar.aceleracao,
+          kmacc=Outvar.aceleracao * 3.6
+          )
+        )
     else:
       line.set_color("red")
       if not Outvar.stoptimer:
         print(f"TIMEOUT REACHED: {abs(round(main_clock, 2))} --> {round(StructData[0][-1] + abs(main_clock), 2)}")
-  return line, raioIntercept, bolinha
+  return line, interceptdist, raioIntercept, bolinha, interdist_ctx, aceleracao_ctx
 
-anime = animation.FuncAnimation(fig, animate, interval=Outvar.frametime, frames=len(StructData[0]), blit=True, cache_frame_data=False) #blit=True 
+anime = animation.FuncAnimation(fig, animate, interval=Outvar.frametime, frames=Outvar.max_frames, blit=True, cache_frame_data=False) #blit=True 
+#plt.subplots_adjust(right=0.955,top=0.8, bottom=1)
 plt.show()
-
 
 """
 print("T----------------------------\n")
